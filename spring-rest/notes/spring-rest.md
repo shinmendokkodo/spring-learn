@@ -1,17 +1,17 @@
 # What is REST?
 
-REST stands for the **RE**presentational **S**tate **T**ransfer. 
-It provides a mechanism for communication between applications. 
-In the REST architecture, the client and server are implemented independently and they do not depend on one another. 
-REST is language independent, so the client and server applications can use different programming languages. 
+REST stands for the **RE**presentational **S**tate **T**ransfer.
+It provides a mechanism for communication between applications.
+In the REST architecture, the client and server are implemented independently and they do not depend on one another.
+REST is language independent, so the client and server applications can use different programming languages.
 This gives REST applications a lot of flexibility.
 
 ![](imgs/rest.svg)
 
-The REST architecture is stateless meaning that the client only manages session state and the server only manages the resource state. 
+The REST architecture is stateless meaning that the client only manages session state and the server only manages the resource state.
 The communication between the client and server is such that every request contains all the information necessary to interpret it without any previous context.
 
-Both the client and server know the communication format and are able to understand the message sent by the other side. 
+Both the client and server know the communication format and are able to understand the message sent by the other side.
 REST calls can be made over HTTP. The client can send HTTP request message to the server where it is processed and an HTTP response is sent back.
 
 ![](imgs/request_response.svg)
@@ -201,7 +201,7 @@ The `JpaRepository` interface inherits a method from the `CrudRepository` called
 
 When a request with a payload is received, Spring uses an appropriate `HttpMessageConverter` to convert the payload data into a Java object based on the content type of the request (e.g., `application/json` or `application/xml`). The `@RequestBody` annotation tells Spring to bind the deserialized object to the annotated method parameter.
 
-## How data gets mapped to java object from http request?
+## How data gets mapped to java object from HTTP request?
 
 When an HTTP request is received by a Spring Boot application, the request data is mapped to a Java object using `HttpMessageConverter` instances. These converters are responsible for converting the request body data (e.g., JSON or XML) to a Java object and vice versa. Spring Boot automatically configures a set of default converters based on the libraries available in the classpath.
 
@@ -231,3 +231,384 @@ In summary, the data mapping process in Spring Boot relies on `HttpMessageConver
 `@PutMapping` is an annotation in the Spring Framework, specifically in Spring Web MVC, that is used to map HTTP PUT requests to specific handler methods in your controller classes. It is a composed annotation that acts as a shortcut for `@RequestMapping(method = RequestMethod.PUT)`.
 
 The `@PutMapping` annotation is used to define a handler method for updating resources in RESTful web services. When you annotate a method with `@PutMapping`, Spring will route incoming HTTP PUT requests to that method, based on the specified URI pattern.
+
+## `@PatchMapping`
+
+`@PatchMapping` is an annotation in the Spring Framework, specifically in Spring Web MVC, used to map HTTP PATCH requests to specific handler methods in your controller classes. It is a composed annotation that acts as a shortcut for `@RequestMapping(method = RequestMethod.PATCH)`.
+
+The `@PatchMapping` annotation is used to define a handler method for partially updating resources in RESTful web services. When you annotate a method with `@PatchMapping`, Spring will route incoming HTTP PATCH requests to that method based on the specified URI pattern.
+
+## `@PutMapping` vs `@PatchMapping`
+
+Both `@PutMapping` and `@PatchMapping` are annotations in the Spring Web MVC framework used to handle HTTP requests for updating resources in a RESTful web service. They have different use cases and semantics when it comes to updating resources:
+
+1. `@PutMapping`:
+
+- Maps to the HTTP PUT method.
+- Used for a complete update of a resource, i.e., replacing the entire resource with new data.
+- The client must send all the fields of the resource in the request payload, even if only a few fields need to be updated.
+- The server replaces the current resource with the new data provided in the request payload.
+- If the resource does not exist, the server may create a new resource with the provided data, depending on the implementation.
+- Idempotent: making the same PUT request multiple times will have the same result as making it once.
+
+2. `@PatchMapping`:
+
+- Maps to the HTTP PATCH method.
+- Used for a partial update of a resource, i.e., modifying only specific fields of the resource.
+- The client sends only the fields that need to be updated in the request payload.
+- The server applies the changes provided in the request payload to the existing resource.
+- If the resource does not exist, the server should return an error, as PATCH is not meant for creating new resources.
+- Not idempotent: making the same PATCH request multiple times may have different results, depending on the fields being updated.
+
+In summary, use `@PutMapping` when you want to update an entire resource by replacing it with new data, and use `@PatchMapping` when you want to perform a partial update by modifying specific fields of a resource.
+
+---
+
+While PATCH is generally not idempotent, there are cases when it can be. The idempotency of a PATCH request depends on how the server processes the request and the type of changes being made. Let's look at an example where PATCH is not idempotent.
+
+Consider a simple RESTful web service that manages bank account transactions. A `Transaction` resource has an `amount` field that represents the transaction amount. We provide an endpoint to increment the transaction amount by a specified value using a PATCH request:
+
+```json
+PATCH /transactions/1
+{
+    "incrementAmount": 10
+}
+```
+
+Here's the implementation of the `incrementTransactionAmount` method in the controller:
+
+```java
+@RestController
+public class TransactionController {
+
+    // Other methods...
+
+    @PatchMapping("/transactions/{id}")
+    public Transaction incrementTransactionAmount(@PathVariable Long id, @RequestBody TransactionUpdateRequest updateRequest) {
+        // Implement the logic for incrementing the transaction amount by the specified value.
+        // For example, increment the 'amount' field of the transaction in the database by the 'incrementAmount' value from the updateRequest object.
+        Transaction transaction = incrementTransactionAmountInDatabase(id, updateRequest.getIncrementAmount());
+        return transaction;
+    }
+}
+```
+
+Now, suppose the current transaction amount is 100. If we send the PATCH request mentioned above, the server increments the transaction amount by 10, making it 110. If we send the same PATCH request again, the server will increment the transaction amount by 10 again, making it 120.
+
+As you can see, sending the same PATCH request multiple times leads to different results, which means it is not idempotent in this case. If we were using a PUT request to set the transaction amount explicitly, it would be idempotent, as sending the same PUT request multiple times would always result in the same transaction amount.
+
+## `@Modifying`
+
+`@Modifying` is an annotation used in Spring Data JPA to indicate that a query method in a repository is meant to perform modifications on the underlying data, such as updates or deletes. By default, Spring Data JPA query methods are assumed to be read-only, and they don't modify any data in the database. The `@Modifying` annotation informs Spring Data JPA that the query method will change the state of the data, and thus, it should clear the underlying persistence context after executing the query to avoid inconsistencies.
+
+Typically, you would use `@Modifying` in combination with the `@Query` annotation, which allows you to provide custom JPQL or SQL queries for your repository methods.
+
+Here's an example of using the `@Modifying` annotation in a Spring Data JPA repository:
+
+```java
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.transaction.annotation.Transactional;
+
+public interface UserRepository extends JpaRepository<User, Long> {
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE User u SET u.active = ?2 WHERE u.id = ?1")
+    int updateUserActiveStatus(Long id, boolean active);
+}
+```
+
+In this example, the `UserRepository` extends the `JpaRepository` interface, which provides basic CRUD operations for the `User` entity. The `updateUserActiveStatus` method is annotated with `@Modifying`, `@Transactional`, and `@Query`. The `@Query` annotation defines a custom JPQL query to update the `active` field of a `User` entity with a specific `id`. The `@Modifying` annotation indicates that this method modifies the data, and the `@Transactional` annotation ensures that the method is executed within a transaction to maintain data integrity.
+
+When the `updateUserActiveStatus` method is called, it will execute the custom JPQL query and update the `active` status of the specified user in the database.
+
+## `@Transactional`
+
+`@Transactional` is an annotation provided by the Spring Framework that is used to declaratively manage transactions in your application. When you annotate a method or a class with `@Transactional`, Spring ensures that any database operations executed within the method's scope are part of a single transaction. This helps maintain data integrity and consistency by either committing all the changes together if everything is successful, or rolling back the changes if any error occurs.
+
+Here's how `@Transactional` works under the hood:
+
+1. When a method annotated with `@Transactional` is called, Spring checks if there is an ongoing transaction.
+2. If there is no ongoing transaction, Spring starts a new transaction before executing the method.
+3. If there is an ongoing transaction, Spring will join the existing transaction, depending on the propagation behavior defined in the `@Transactional` annotation.
+4. Spring executes the method, and any database operations performed within the method are part of the transaction.
+5. If the method completes without any exceptions, Spring commits the transaction, making all the changes permanent in the database.
+6. If an exception occurs during the method execution, Spring rolls back the transaction, undoing any changes made within the transaction's scope.
+
+To enable transaction management in Spring, you need to add the `@EnableTransactionManagement` annotation to your configuration class:
+
+```java
+import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+
+@Configuration
+@EnableTransactionManagement
+public class AppConfig {
+    // ...
+}
+```
+
+Here's an example of using the `@Transactional` annotation in a service class:
+
+```java
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class UserService {
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    @Transactional
+    public void updateUserEmail(Long id, String newEmail) {
+        User user = userRepository.findById(id).orElseThrow(() -> new UserNotFoundException(id));
+        user.setEmail(newEmail);
+        userRepository.save(user);
+    }
+}
+```
+
+In this example, the `updateUserEmail` method is annotated with `@Transactional`. When this method is called, Spring ensures that both the `findById` and `save` operations are executed within the same transaction. If any exception occurs during these operations, the transaction will be rolled back, and the database state will remain unchanged. If the method completes successfully, the transaction will be committed, and the user's email will be updated in the database.
+
+### What is/are the propagation behavior defined in the `@Transactional` annotation?
+
+The propagation behavior in the `@Transactional` annotation determines how transactions should be managed when a transactional method is called from another transactional method. The propagation behavior is defined using the propagation attribute of the `@Transactional` annotation, and its possible values are from the Propagation enumeration.
+
+#### Here are the different propagation behaviors:
+
+1. **REQUIRED** (default): If there is an ongoing transaction, the current method will join that transaction. If there is no ongoing transaction, a new one will be started. This is the most common propagation behavior.
+
+```java
+@Transactional(propagation = Propagation.REQUIRED)
+public void someMethod() {
+    // ...
+}
+```
+
+2. **SUPPORTS**: If there is an ongoing transaction, the current method will join that transaction. If there is no ongoing transaction, the method will be executed without a transaction. It's useful when the method can work with or without a transaction.
+
+```java
+@Transactional(propagation = Propagation.SUPPORTS)
+public void someMethod() {
+    // ...
+}
+```
+
+3. **MANDATORY**: The current method must be executed within an ongoing transaction. If there is no ongoing transaction, an exception will be thrown. This ensures that a transaction must be started before calling this method.
+
+```java
+@Transactional(propagation = Propagation.MANDATORY)
+public void someMethod() {
+    // ...
+}
+```
+
+4. **REQUIRES_NEW**: A new transaction will always be started for the current method. If there is an ongoing transaction, it will be suspended and resumed after the new transaction completes. This ensures that the method always runs in a separate transaction.
+
+```java
+@Transactional(propagation = Propagation.REQUIRES_NEW)
+public void someMethod() {
+    // ...
+}
+```
+
+5. **NOT_SUPPORTED**: The current method must be executed without a transaction. If there is an ongoing transaction, it will be suspended and resumed after the method completes. This is useful when you want to execute a piece of code outside of a transaction.
+
+```java
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+public void someMethod() {
+    // ...
+}
+```
+
+6. **NEVER**: The current method must be executed without a transaction. If there is an ongoing transaction, an exception will be thrown. This ensures that a transaction must not be active when calling this method.
+
+```java
+@Transactional(propagation = Propagation.NEVER)
+public void someMethod() {
+    // ...
+}
+```
+
+7. **NESTED**: If there is an ongoing transaction, the current method will be executed within a nested transaction. If there is no ongoing transaction, a new one will be started. Nested transactions are a part of the outer transaction but can be committed or rolled back independently. If the outer transaction is rolled back, all the nested transactions will be rolled back as well. Nested transactions are not supported by all transaction managers.
+
+```java
+@Transactional(propagation = Propagation.NESTED)
+public void someMethod() {
+    // ...
+}
+```
+
+### Please provide an example for REQUIRED propogation level.
+
+Here's an example that demonstrates the `REQUIRED` propagation level with a simple banking application that transfers money between two accounts. We'll create two services - `AccountService` and `BankingService`. The `AccountService` will have methods to debit and credit accounts, and the `BankingService` will have a method to transfer money between accounts. We'll use the `REQUIRED` propagation level to ensure that the money transfer operation is atomic.
+
+`AccountService.java`:
+
+```java
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class AccountService {
+
+    // Assume this is a JpaRepository
+    private final AccountRepository accountRepository;
+
+    public AccountService(AccountRepository accountRepository) {
+        this.accountRepository = accountRepository;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void debit(Long accountId, double amount) {
+        Account account = accountRepository.findById(accountId)
+            .orElseThrow(() -> new AccountNotFoundException(accountId));
+        account.setBalance(account.getBalance() - amount);
+        accountRepository.save(account);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void credit(Long accountId, double amount) {
+        Account account = accountRepository.findById(accountId)
+            .orElseThrow(() -> new AccountNotFoundException(accountId));
+        account.setBalance(account.getBalance() + amount);
+        accountRepository.save(account);
+    }
+}
+```
+
+`BankingService.java`:
+
+```java
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class BankingService {
+
+    private final AccountService accountService;
+
+    public BankingService(AccountService accountService) {
+        this.accountService = accountService;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void transferMoney(Long fromAccountId, Long toAccountId, double amount) {
+        accountService.debit(fromAccountId, amount);
+        accountService.credit(toAccountId, amount);
+    }
+}
+```
+
+In this example, we have `debit` and `credit` methods in the `AccountService` class, and both are annotated with `@Transactional(propagation = Propagation.REQUIRED)`. The `transferMoney` method in the `BankingService` class is also annotated with `@Transactional(propagation = Propagation.REQUIRED)`.
+
+When we call the `transferMoney` method, it will start a new transaction because there's no existing transaction. Then, it calls the `debit` and `credit` methods from the `AccountService`. Since both of these methods have the `REQUIRED` propagation level, they will join the existing transaction started by the `transferMoney` method.
+
+If the `debit` and `credit` operations are successful, the transaction will commit, and the changes will be saved to the database. If any exception occurs during these operations, the transaction will roll back, and none of the changes will be saved. This ensures that the money transfer operation is atomic and consistent.
+
+`@DeleteMapping`
+
+`@DeleteMapping` is an annotation in the Spring Web MVC framework, used to map HTTP DELETE requests to specific handler methods in your controller classes. It is a composed annotation that acts as a shortcut for `@RequestMapping(method = RequestMethod.DELETE)`.
+
+The `@DeleteMapping` annotation is used to define a handler method for deleting resources in RESTful web services. When you annotate a method with `@DeleteMapping`, Spring will route incoming HTTP DELETE requests to that method based on the specified URI pattern.
+
+The HTTP DELETE request deletes a record. The primary key of the record to be deleted can be sent as part of the request URI or the record itself can be sent as part of the request body.
+
+`JpaRepository` inherits two methods of the `CrudRepository` for deleting a record. One is the delete method which takes an entity to be deleted, and the other is `deleteById` which takes the primary key of the entity to be deleted. They both have the same function, and internally the `deleteById` method calls the `delete` method:
+
+```java
+void deleteById(ID id) {
+    delete(findById(id));
+}
+```
+
+The difference lies in the way both methods respond when the entity to be deleted is not found. The `deleteById` method throws the `EmptyResultDataAccessException` while delete throws a `NoSuchElementException`.
+
+# Exception Handling
+
+## @ControllerAdvice
+
+A best practice in exception handling, is to have centralized exception handlers that can be used by all controllers in the REST API. Since exception handling is a cross cutting concern, Spring provides the `@ControllerAdvice` annotation. This annotation intercepts requests going to the controller and responses coming from controllers.
+
+![](imgs/exception_handling.svg)
+
+The `@ControllerAdvice` annotation can be used as an interceptor of exceptions thrown by methods annotated with `@RequestMapping` or any of its shortcut annotations.
+
+## `@ExceptonHandler`
+The `@ExceptonHandler` annotation on a method, marks it as a method that will handle exceptions. Spring automatically checks all methods marked with this annotation when an exception is thrown. If it finds a method whose input type matches the exception thrown, the method will be executed.
+
+# ResponseEntity
+
+`ResponseEntity` is a class in the Spring Web MVC framework that represents an HTTP response, including the HTTP status code, headers, and body. It is used to build a complete HTTP response with more control over the returned content compared to simply returning an object or a `@ResponseBody` from a controller method.
+
+`ResponseEntity` is a generic class, where the type parameter represents the type of the response body. You can create a `ResponseEntity` instance using its constructors or the static factory methods provided by the class, such as `ResponseEntity.ok()`, `ResponseEntity.notFound()`, etc.
+
+```java
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class UserController {
+
+    @GetMapping("/users/{id}")
+    public ResponseEntity<User> getUser(@PathVariable Long id) {
+        // Implement the logic for retrieving the user with the specified 'id'.
+        // For example, fetch the user from the database.
+        User user = getUserFromDatabase(id);
+
+        if (user == null) {
+            // Return a 404 Not Found response if the user is not found
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+
+        // Return a 200 OK response with the user object as the response body
+        return new ResponseEntity<>(user, HttpStatus.OK);
+    }
+}
+```
+
+In this example, the `getUser` method returns a `ResponseEntity<User>` object. If the specified user is found, a `ResponseEntity` with a `200 OK` status and the user object as the response body is returned. If the user is not found, a `ResponseEntity` with a `404 Not Found` status is returned. This provides more control over the HTTP response compared to simply returning a `User` object from the method.
+
+You can also use `ResponseEntity` to set custom headers, modify the content type, or perform other modifications to the response before sending it to the client.
+
+The `ResponseEntity` class in Spring Web MVC provides several constructors to create a new instance with various combinations of status codes, headers, and body content. Here are the most commonly used constructors:
+
+1. `ResponseEntity(HttpStatus status)`: Creates a new `ResponseEntity` with the given HTTP status code and an empty body.
+
+```java
+ResponseEntity<String> response = new ResponseEntity<>(HttpStatus.NOT_FOUND);
+```
+
+2. `ResponseEntity(T body, HttpStatus status)`: Creates a new `ResponseEntity` with the given body content and HTTP status code.
+
+```java
+User user = new User("John", "Doe");
+ResponseEntity<User> response = new ResponseEntity<>(user, HttpStatus.OK);
+```
+
+3. `ResponseEntity(MultiValueMap<String, String> headers, HttpStatus status)`: Creates a new `ResponseEntity` with the given headers and HTTP status code.
+
+```java
+MultiValueMap<String, String> headers = new HttpHeaders();
+headers.add("Custom-Header", "customHeaderValue");
+ResponseEntity<String> response = new ResponseEntity<>(headers, HttpStatus.OK);
+```
+
+4. `ResponseEntity(T body, MultiValueMap<String, String> headers, HttpStatus status)`: Creates a new `ResponseEntity` with the given body content, headers, and HTTP status code.
+
+```java
+User user = new User("John", "Doe");
+MultiValueMap<String, String> headers = new HttpHeaders();
+headers.add("Custom-Header", "customHeaderValue");
+ResponseEntity<User> response = new ResponseEntity<>(user, headers, HttpStatus.OK);
+```
+
+These constructors give you the flexibility to create `ResponseEntity` instances with different combinations of status codes, headers, and body content. You can choose the constructor that best suits your needs for a specific response.

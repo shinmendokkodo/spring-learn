@@ -4,6 +4,7 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Map;
 
+import io.shinmen.springrest.exceptions.PlayerNotFoundException;
 import org.springframework.stereotype.Service;
 
 import io.shinmen.springrest.entities.Player;
@@ -24,7 +25,7 @@ public class PlayerService {
 	}
 	
 	public Player get(int id) {
-        return playerRepository.findById(id).orElseThrow(() -> new RuntimeException("Player with id "+ id + " not found."));
+        return playerRepository.findById(id).orElseThrow(() -> new PlayerNotFoundException("Player with id "+ id + " not found."));
     }
 	
 	public Player save(Player player) {
@@ -32,7 +33,7 @@ public class PlayerService {
 	}
 
     public Player update(Integer id, Player player) {
-        Player playerToUpdate = playerRepository.findById(id).orElseThrow(() -> new RuntimeException("Player with id "+ id + " not found."));
+        Player playerToUpdate = playerRepository.findById(id).orElseThrow(() -> new PlayerNotFoundException("Player with id "+ id + " not found."));
         
 		playerToUpdate.setName(player.getName());
         playerToUpdate.setNationality(player.getNationality());
@@ -43,20 +44,28 @@ public class PlayerService {
     }
 
 	public Player patch(Integer id, Map<String, Object> playerProps) {
-		Player playerToUpdate = playerRepository.findById(id).orElseThrow(() -> new RuntimeException("Player with id "+ id + " not found."));
+		Player player = playerRepository.findById(id).orElseThrow(() -> new PlayerNotFoundException("Player with id "+ id + " not found."));
 
 		playerProps.forEach((key, value) -> {
+			System.out.println("Key: " + key + " Value: " + value);
 			Field field = ReflectionUtils.findField(Player.class, key);
 			ReflectionUtils.makeAccessible(field);
-			ReflectionUtils.setField(field, playerToUpdate, value);
+			ReflectionUtils.setField(field, player, value);
 		});
 
-		return playerRepository.save(playerToUpdate);
+		return playerRepository.save(player);
 	}
 
 	@Transactional
 	public void patchTitles(int id, int titles) {
-		playerRepository.updateTitles(id, titles);
+		Player player = playerRepository.findById(id).orElseThrow(() -> new PlayerNotFoundException("Player with id "+ id + " not found."));
+		playerRepository.updateTitles(player.getId(), titles);
+	}
+
+	public String delete(int id) {
+		Player player = playerRepository.findById(id).orElseThrow(() -> new PlayerNotFoundException("Player with id "+ id + " not found."));
+		playerRepository.delete(player);
+		return "Deleted player with id: " + id;
 	}
 	
 }
